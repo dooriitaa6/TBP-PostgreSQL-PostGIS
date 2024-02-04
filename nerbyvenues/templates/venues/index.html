@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Nearby Venues</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        #map {
+            height: 600px;
+            width: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([51.522687, -0.132855], 15);
+        var redIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
+        var clickedLocationMarker = L.marker([0, 0], { icon: redIcon }).addTo(map);
+        var nearestMarkers = [];
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var venueList = document.createElement('div');
+
+        function updateVenueList(venues) {
+            var venueList = document.getElementById('venues-list-container');
+            venueList.innerHTML = '';
+            venues.forEach(function (venue) {
+                var listItem = document.createElement('li');
+                var dist = venue.distance
+                var name = venue.name
+                listItem.textContent = `${name} | ${dist}m`;
+                venueList.appendChild(listItem);
+            });
+        }
+
+        map.on('click', function (e) {
+            console.log("Map clicked at:", e.latlng);
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            var circle = L.circle(e.latlng, {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.2,
+                radius: 1000
+            }).addTo(map);
+
+            clickedLocationMarker.setLatLng(e.latlng);
+            clickedLocationMarker.bindPopup('You are here!').openPopup();
+
+            if (window.currentCircle) {
+                map.removeLayer(window.currentCircle);
+            }
+            window.currentCircle = circle;
+
+            nearestMarkers.forEach(function (marker) {
+                map.removeLayer(marker);
+            });
+            nearestMarkers = [];
+
+            fetch(`/nearest-museums/?lat=${lat}&lng=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateVenueList(data);
+                    data.forEach(function (venue) {
+                        var marker = L.marker([venue.latitude, venue.longitude]).addTo(map)
+                            .bindPopup(`${venue.name}`);
+                        nearestMarkers.push(marker);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        });
+    </script>
+    <h1 style="padding-left: 42%; font-family: Arial, Helvetica, sans-serif; font-weight: bolder;">Nearby Venues</h1>
+    <div id="venues-list-container" style="padding-left: 25%; font-family: Arial, Helvetica, sans-serif;">
+    </div>
+</body>
+
+</html>
